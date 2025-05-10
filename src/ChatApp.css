@@ -1,0 +1,590 @@
+/* Базовые стили с учетом Telegram Mini App */
+.chat-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.chat-header {
+  padding: 12px 16px;
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  border-bottom: 1px solid var(--tg-theme-hint-color, #e5e5e5);
+  text-align: center;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background-color: var(--tg-theme-bg-color, #ffffff);
+}
+
+.message {
+  max-width: 80%;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  position: relative;
+  word-wrap: break-word;
+}
+
+.message.user {
+  margin-left: auto;
+  background-color: var(--tg-theme-button-color, #2ea6ff);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  border-bottom-right-radius: 4px;
+}
+
+.message.bot {
+  margin-right: auto;
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  border-bottom-left-radius: 4px;
+}
+
+.reply-context {
+  font-size: 0.8em;
+  opacity: 0.7;
+  border-left: 2px solid var(--tg-theme-link-color, #168acd);
+  padding-left: 8px;
+  margin-bottom: 4px;
+}
+
+.attachment {
+  margin-bottom: 8px;
+}
+
+.attachment img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.attachment a {
+  color: var(--tg-theme-link-color, #168acd);
+  text-decoration: none;
+}
+
+.message-time {
+  font-size: 0.7em;
+  opacity: 0.6;
+  text-align: right;
+  margin-top: 4px;
+}
+
+.input-area {
+  padding: 8px;
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  border-top: 1px solid var(--tg-theme-hint-color, #e5e5e5);
+}
+
+.reply-preview {
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  padding: 8px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 0.9em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reply-preview button {
+  background: none;
+  border: none;
+  color: var(--tg-theme-hint-color, #999999);
+  cursor: pointer;
+}
+
+.input-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-container textarea {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--tg-theme-hint-color, #e5e5e5);
+  resize: none;
+  max-height: 120px;
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  color: var(--tg-theme-text-color, #000000);
+  font-family: inherit;
+}
+
+.attach-button,
+.send-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background-color: var(--tg-theme-button-color, #2ea6ff);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.attach-button {
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Стили для меню */
+.menu-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--tg-theme-text-color, #000000);
+  margin-right: 12px;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  border-bottom: 1px solid var(--tg-theme-hint-color, #e5e5e5);
+  position: relative;
+}
+
+.chat-header h2 {
+  flex-grow: 1;
+  text-align: center;
+  margin: 0;
+  font-size: 18px;
+}
+
+.side-menu {
+  position: fixed;
+  top: 0;
+  left: -280px;
+  width: 280px;
+  height: 100%;
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  transition: left 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.side-menu.open {
+  left: 0;
+}
+
+.menu-header {
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--tg-theme-hint-color, #e5e5e5);
+}
+
+.menu-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-menu {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.chat-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.chat-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--tg-theme-hint-color, #e5e5e5);
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.2s;
+}
+
+.chat-item:hover {
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+}
+
+.chat-item.active {
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+}
+
+.chat-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.chat-preview {
+  font-size: 0.9em;
+  color: var(--tg-theme-hint-color, #999999);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unread-badge {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background-color: var(--tg-theme-button-color, #2ea6ff);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7em;
+}
+
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+/* Стили для категорий */
+.categories-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--tg-theme-hint-color, #e5e5e5);
+  padding: 0 8px;
+}
+
+.category-tab {
+  flex: 1;
+  padding: 12px 8px;
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--tg-theme-text-color, #000000);
+  transition: all 0.2s;
+}
+
+.category-tab.active {
+  border-bottom-color: var(--tg-theme-button-color, #2ea6ff);
+  color: var(--tg-theme-button-color, #2ea6ff);
+  font-weight: 500;
+}
+
+/* Стили для кнопки создания чата */
+.create-chat-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--tg-theme-button-color, #2ea6ff);
+  margin-left: 12px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.create-chat-button:hover {
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+}
+
+.create-chat-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.create-chat-button:hover:not(:disabled) {
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+}
+
+/* Стили для элементов чата */
+.chat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--tg-theme-hint-color, #e5e5e5);
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-radius: 12px;
+  margin: 8px 8px 8px;
+}
+
+.chat-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.no-chats {
+  padding: 16px;
+  text-align: center;
+  color: var(--tg-theme-hint-color, #999999);
+}
+
+.create-chat-modal h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.create-chat-modal input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--tg-theme-hint-color, #e5e5e5);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+.modal-buttons button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.modal-buttons button:first-child {
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.modal-buttons button:last-child {
+  background-color: var(--tg-theme-button-color, #2ea6ff);
+  color: var(--tg-theme-button-text-color, #ffffff);
+}
+
+.modal-buttons button:last-child:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Сообщение о невыбранном чате */
+.no-chat-selected {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--tg-theme-hint-color, #999999);
+  text-align: center;
+  padding: 20px;
+}
+
+/* Стили для кнопки создания чата в категории */
+.create-chat-in-category {
+  width: 100%;
+  padding: 12px 16px;
+  background-color: var(--tg-theme-button-color, #2ea6ff);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  border: none;
+  border-radius: 20px;
+  margin: 8px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.create-chat-in-category:hover {
+  background-color: var(--tg-theme-button-color-hover, #1d8ad6);
+}
+
+.create-chat-in-category.small {
+  width: auto;
+  padding: 8px 12px;
+  margin: 12px auto 16px;
+  font-size: 13px;
+}
+
+.no-chats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  text-align: center;
+  color: var(--tg-theme-hint-color, #999999);
+}
+
+/* Кнопка меню */
+.chat-menu-button {
+  background: none;
+  border: none;
+  color: var(--tg-theme-hint-color, #999999);
+  cursor: pointer;
+  font-size: 20px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transform: rotate(90deg);
+  padding: 0;
+}
+
+.chat-menu-button:hover {
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+}
+
+/* Контекстное меню */
+.chat-context-menu {
+  position: fixed;
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1001;
+  min-width: 150px;
+  overflow: hidden;
+  border: 1px solid var(--tg-theme-hint-color, #e5e5e5);
+}
+
+.menu-item {
+  width: 100%;
+  padding: 10px 16px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--tg-theme-text-color, #000000);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.menu-item:hover {
+  background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+}
+
+.menu-item.delete {
+  color: #ff3b30;
+}
+
+.menu-item.delete:hover {
+  background-color: rgba(255, 59, 48, 0.1);
+}
+
+/* Стили для кнопки настроек */
+.settings-button {
+  position: absolute;
+  left: 12px;
+  bottom: 70px;
+  background: var(--tg-theme-button-color, #2ea6ff);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Модальное окно настроек */
+.settings-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.settings-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.settings-content {
+  position: relative;
+  background: var(--tg-theme-bg-color, #ffffff);
+  border-radius: 12px;
+  padding: 20px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+}
+
+.close-settings {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.user-profile {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.user-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 10px;
+  border: 2px solid var(--tg-theme-button-color, #2ea6ff);
+}
+
+.theme-switcher button {
+  width: 100%;
+  padding: 12px;
+  background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--tg-theme-text-color, #000000);
+  transition: background-color 0.2s;
+}
+
+.theme-switcher button:hover {
+  background: var(--tg-theme-hint-color, #e5e5e5);
+}
