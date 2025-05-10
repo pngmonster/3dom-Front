@@ -1,58 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './ChatApp.css';
+import { Category, Chat, ChatMenu, Message, ReplyContext, Settings, TelegramUser } from './types';
+import { useChats } from './hooks/useChats';
 
-// Типы для TypeScript
 
-type Message = {
-  id: string;
-  text: string;
-  sender: 'user' | 'bot';
-  timestamp: Date;
-  replyTo?: string;
-  attachment?: {
-    type: 'image' | 'document';
-    url: string;
-    name?: string;
-  };
-};
-
-type ReplyContext = {
-  messageId: string;
-  messageText: string;
-};
-
-type Chat = {
-  id: string;
-  title: string;
-  lastMessage?: string;
-  category: string;
-  isEmpty?: boolean; // Делаем свойство необязательным
-};
-
-type Category = {
-  id: string;
-  name: string;
-};
-
-type ChatMenu = {
-  chatId: string | null;
-  isOpen: boolean;
-  position: { top: number; left: number } | null;
-};
-type Settings = {
-  isOpen: boolean;
-  theme: 'light' | 'dark';
-};
-
-type TelegramUser = {
-  id?: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  language_code?: string;
-  is_premium?: boolean;
-  photo_url?: string;
-};
 
 const ChatApp: React.FC = () => {
   const [settings, setSettings] = useState<Settings>({
@@ -62,34 +13,132 @@ const ChatApp: React.FC = () => {
 
   // Получаем данные пользователя из Telegram WebApp
   const user: TelegramUser = window.Telegram?.WebApp?.initDataUnsafe?.user || {
+    id:11,
     first_name: 'Гость',
     photo_url: 'https://via.placeholder.com/100'
   };
+
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [replyContext, setReplyContext] = useState<ReplyContext | null>(null);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeChat, setActiveChat] = useState<string>('1');
-  const [categories, setCategories] = useState<Category[]>([
-    { id: 'personal', name: 'ChatGPT' },
-    { id: 'work', name: 'DeepSeek' },
-    { id: 'other', name: 'LLama' },
+
+  const [chatMenu, setChatMenu] = useState<ChatMenu>({
+    chatId: null,
+    isOpen: false,
+    position: null
+  });
+
+
+  //____________MODELS_____________________________________________________________
+  // Это три модели которые есть в backend
+  const [models, setModel] = useState<Category[]>([
+    { id: 'llama2', name: 'Llama 2' },
+    { id: 'deepseek-r1', name: 'DeepSeek' },
+    { id: 'mistral', name: 'Mistral' },
   ]);
-  const [activeCategory, setActiveCategory] = useState<string>('personal');
-  const [chats, setChats] = useState<Chat[]>([
-    { id: '1', title: 'Основной чат', lastMessage: 'Привет! Я твой помощник', category: 'personal' },
-    { id: '2', title: 'Техподдержка', lastMessage: 'Чем можем помочь?', category: 'work' },
-    { id: '3', title: 'FAQ', lastMessage: 'Частые вопросы', category: 'other' },
-    { id: '4', title: 'Новости', lastMessage: 'Обновление v1.2.0', category: 'personal' },
-  ]);
+  const [activeModel, setActiveModel] = useState<string>('llama2');
+  //_____________________________________________________________________________________________
+
+//_____________CHATS__________________________________________________________________________
+  // const [chats, setChats] = useState<Chat[]>([
+  //   { id: '1', title: 'Чат 1', lastMessage: 'Привет! Я твой помощник', model: 'llama2' },
+  //   { id: '2', title: 'Чат 2', lastMessage: 'Чем можем помочь?', model: 'deepseek-r1' },
+  //   { id: '3', title: 'Чат 3', lastMessage: 'Частые вопросы', model: 'mistral' },
+  // ]);
+  const {chats, setChats, activeChat, setActiveChat, createAuto, delChat} = useChats(user.id)
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
+
+  // Переключение чата
+  const handleChatChange = (chatId: string) => {
+    // Удаляем предыдущий чат, если он пустой
+    setChats(prev => {
+      const prevChat = prev.find(c => c.id === activeChat);
+      if (prevChat?.isEmpty) {
+        return prev.filter(c => c.id !== activeChat);
+      }
+      return prev;
+    });
+
+    setActiveChat(chatId);
+    setIsMenuOpen(false);
+
+    setMessages([{
+      id: '1',
+      text: `Добро пожаловать в чат "${chats.find(c => c.id === chatId)?.title}"!`,
+      sender: 'bot',
+      timestamp: new Date(),
+    }]);
+
+    // Сбрасываем непрочитанные
+    setChats(prev => prev.map(chat =>
+      chat.id === chatId
+        ? { ...chat, unreadCount: 0 }
+        : chat
+    ));
+
+  };
+
+  // Фокус на поле ввода при создании чата
+  useEffect(() => {
+    if (isCreatingChat && newChatInputRef.current) {
+      newChatInputRef.current.focus();
+    }
+  }, [isCreatingChat]);
+
+  // Создание нового чата
+  const handleCreateChat = (modelId: string) => {
+    const newChat: Chat = {
+      id: Date.now().toString(),
+      title: `Чат ${chats.filter(c => c.model === modelId).length + 1}`,
+      lastMessage: 'Новый чат создан',
+      model: modelId,
+      isEmpty: true, // Теперь это допустимо
+    };
+
+    setChats(prev => [...prev, newChat]);
+    handleChatChange(newChat.id);
+  };
+
+  // Получение чатов по моделям
+  const getChatsByModel = (modelId: string) => {
+    return chats.filter(chat => chat.model === modelId);
+  };
+
+  // Переименование чата, бэк не поддерживает((
+  const handleRenameChat = (newName: string) => {
+    setChats(prev => prev.map(chat =>
+      chat.id === chatMenu.chatId ? { ...chat, title: newName } : chat
+    ));
+    setChatMenu({ chatId: null, isOpen: false, position: null });
+  };
+
+  // Удаление чата
+  const handleDeleteChat = () => {
+    if (!chatMenu.chatId) return;
+
+    setChats(prev => prev.filter(chat => chat.id !== chatMenu.chatId));
+    if (activeChat === chatMenu.chatId) {
+      const remainingChats = chats.filter(chat => chat.id !== chatMenu.chatId);
+      setActiveChat(remainingChats[0]?.id || '');
+    }
+    delChat(chatMenu.chatId)
+
+    setChatMenu({ chatId: null, isOpen: false, position: null });
+  };
+//_____________________________________________________________________________
+
+  
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const newChatInputRef = useRef<HTMLInputElement>(null);
 
+  // Темы
   useEffect(() => {
     // Простая проверка темы без использования Telegram API
     const isDarkMode = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
@@ -121,26 +170,20 @@ const ChatApp: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Фокус на поле ввода при создании чата
-  useEffect(() => {
-    if (isCreatingChat && newChatInputRef.current) {
-      newChatInputRef.current.focus();
-    }
-  }, [isCreatingChat]);
+  
 
   // Обработчик отправки сообщения
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputText.trim() && !attachment) return;
+    const currentChat = chats.find(chat => chat.id === activeChat);
 
-    // Если чат был пустым, снимаем флаг
-    setChats(prev => prev.map(chat =>
-      chat.id === activeChat && chat.isEmpty
-        ? { ...chat, isEmpty: false }
-        : chat
-    ));
-
-    if (!inputText.trim() && !attachment) return;
-
+    if (currentChat?.isEmpty || currentChat===undefined) {
+      //Создание чата с авто названием и делание его активным
+      const res: string = await createAuto(inputText, {telegram_id:user.id, model:activeModel, title:"ЧБД"})
+      handleChatChange(res)
+    }
+    
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       text: inputText,
@@ -162,6 +205,9 @@ const ChatApp: React.FC = () => {
     setInputText('');
     setAttachment(null);
     setReplyContext(null);
+
+   
+   
 
     // Обновляем последнее сообщение в списке чатов
     setChats(prev => prev.map(chat =>
@@ -214,76 +260,7 @@ const ChatApp: React.FC = () => {
       handleSendMessage();
     }
   };
-
-  // Переключение чата
-  const handleChatChange = (chatId: string) => {
-    // Удаляем предыдущий чат, если он пустой
-    setChats(prev => {
-      const prevChat = prev.find(c => c.id === activeChat);
-      if (prevChat?.isEmpty) {
-        return prev.filter(c => c.id !== activeChat);
-      }
-      return prev;
-    });
-
-    setActiveChat(chatId);
-    setIsMenuOpen(false);
-    setMessages([{
-      id: '1',
-      text: `Добро пожаловать в чат "${chats.find(c => c.id === chatId)?.title}"!`,
-      sender: 'bot',
-      timestamp: new Date(),
-    }]);
-
-    // Сбрасываем непрочитанные
-    setChats(prev => prev.map(chat =>
-      chat.id === chatId
-        ? { ...chat, unreadCount: 0 }
-        : chat
-    ));
-
-    setActiveChat(chatId);
-    setIsMenuOpen(false);
-    setMessages([{
-      id: '1',
-      text: `Добро пожаловать в чат "${chats.find(c => c.id === chatId)?.title}"!`,
-      sender: 'bot',
-      timestamp: new Date(),
-    }]);
-
-    // Сбрасываем непрочитанные
-    setChats(prev => prev.map(chat =>
-      chat.id === chatId
-        ? { ...chat, unreadCount: 0 }
-        : chat
-    ));
-  };
-
-  // Создание нового чата
-  const handleCreateChat = (categoryId: string) => {
-    const newChat: Chat = {
-      id: Date.now().toString(),
-      title: `Чат ${chats.filter(c => c.category === categoryId).length + 1}`,
-      lastMessage: 'Новый чат создан',
-      category: categoryId,
-      isEmpty: true, // Теперь это допустимо
-    };
-
-    setChats(prev => [...prev, newChat]);
-    handleChatChange(newChat.id);
-  };
-
-  const [chatMenu, setChatMenu] = useState<ChatMenu>({
-    chatId: null,
-    isOpen: false,
-    position: null
-  });
-
-  // Получение чатов по категории
-  const getChatsByCategory = (categoryId: string) => {
-    return chats.filter(chat => chat.category === categoryId);
-  };
-
+  
   const handleOpenMenu = (chatId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -294,23 +271,7 @@ const ChatApp: React.FC = () => {
     });
   };
 
-  const handleRenameChat = (newName: string) => {
-    setChats(prev => prev.map(chat =>
-      chat.id === chatMenu.chatId ? { ...chat, title: newName } : chat
-    ));
-    setChatMenu({ chatId: null, isOpen: false, position: null });
-  };
 
-  const handleDeleteChat = () => {
-    if (!chatMenu.chatId) return;
-
-    setChats(prev => prev.filter(chat => chat.id !== chatMenu.chatId));
-    if (activeChat === chatMenu.chatId) {
-      const remainingChats = chats.filter(chat => chat.id !== chatMenu.chatId);
-      setActiveChat(remainingChats[0]?.id || '');
-    }
-    setChatMenu({ chatId: null, isOpen: false, position: null });
-  };
 
   return (
     <div className="chat-app">
@@ -324,8 +285,8 @@ const ChatApp: React.FC = () => {
           <button
             className="create-chat-button"
             onClick={() => {
-              const currentCategory = chats.find(c => c.id === activeChat)?.category || activeCategory;
-              handleCreateChat(currentCategory);
+              const currentModel = chats.find(c => c.id === activeChat)?.model || activeModel;
+              handleCreateChat(currentModel);
             }}
           >
             ＋
@@ -396,13 +357,13 @@ const ChatApp: React.FC = () => {
         </div>
 
         <div className="categories-tabs">
-          {categories.map(category => (
+          {models.map(model => (
             <button
-              key={category.id}
-              className={`category-tab ${activeCategory === category.id ? 'active' : ''}`}
-              onClick={() => setActiveCategory(category.id)}
+              key={model.id}
+              className={`category-tab ${activeModel === model.id ? 'active' : ''}`}
+              onClick={() => setActiveModel(model.id)}
             >
-              {category.name}
+              {model.name}
             </button>
           ))}
         </div>
@@ -411,13 +372,13 @@ const ChatApp: React.FC = () => {
           {/* Добавляем кнопку создания чата в категорию */}
           <button
             className="create-chat-in-category small"
-            onClick={() => handleCreateChat(activeCategory)}
+            onClick={() => handleCreateChat(activeModel)}
           >
             ＋ Создать чат
           </button>
 
-          {getChatsByCategory(activeCategory).length > 0 ? (
-            getChatsByCategory(activeCategory).map(chat => (
+          {getChatsByModel(activeModel).length > 0 ? (
+            getChatsByModel(activeModel).map(chat => (
               <div
                 key={chat.id}
                 className={`chat-item ${activeChat === chat.id ? 'active' : ''}`}
