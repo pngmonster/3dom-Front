@@ -1,8 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import './ChatApp.css';
-import { Category, Chat, ChatMenu, Message, ReplyContext, Settings, TelegramUser } from './types';
+import { Chat, ChatMenu, Message, Model, ReplyContext, Settings, TelegramUser } from './types';
 import { useChats } from './hooks/useChats';
-
+import { useMessages, useStreamMessage } from './hooks/useMessages';
+import { MessageIn } from './api/types';
+import { MessageThread } from './components/message'
+import { v4 as uuidv4 } from 'uuid';
+import { useUploadFile } from './hooks/useFile';
 
 
 const ChatApp: React.FC = () => {
@@ -19,7 +23,6 @@ const ChatApp: React.FC = () => {
   };
 
 
-  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [replyContext, setReplyContext] = useState<ReplyContext | null>(null);
   const [attachment, setAttachment] = useState<File | null>(null);
@@ -34,26 +37,21 @@ const ChatApp: React.FC = () => {
 
   //____________MODELS_____________________________________________________________
   // Это три модели которые есть в backend
-  const [models, setModel] = useState<Category[]>([
+  const [models, setModel] = useState<Model[]>([
     { id: 'llama2', name: 'Llama 2' },
-    { id: 'deepseek-r1', name: 'DeepSeek' },
+    { id: 'deepseek-r1:8b', name: 'DeepSeek' },
     { id: 'mistral', name: 'Mistral' },
   ]);
   const [activeModel, setActiveModel] = useState<string>('llama2');
   //_____________________________________________________________________________________________
 
 //_____________CHATS__________________________________________________________________________
-  // const [chats, setChats] = useState<Chat[]>([
-  //   { id: '1', title: 'Чат 1', lastMessage: 'Привет! Я твой помощник', model: 'llama2' },
-  //   { id: '2', title: 'Чат 2', lastMessage: 'Чем можем помочь?', model: 'deepseek-r1' },
-  //   { id: '3', title: 'Чат 3', lastMessage: 'Частые вопросы', model: 'mistral' },
-  // ]);
-  const {chats, setChats, activeChat, setActiveChat, createAuto, delChat} = useChats(user.id)
+  const {chats, setChats, createAuto, delChat} = useChats(user.id)
+  const [activeChat, setActiveChat] = useState<string>('');
   const [isCreatingChat, setIsCreatingChat] = useState(false);
-  const [newChatTitle, setNewChatTitle] = useState('');
 
   // Переключение чата
-  const handleChatChange = (chatId: string) => {
+  const handleChatChange = async (chatId: string) => {
     // Удаляем предыдущий чат, если он пустой
     setChats(prev => {
       const prevChat = prev.find(c => c.id === activeChat);
@@ -65,13 +63,6 @@ const ChatApp: React.FC = () => {
 
     setActiveChat(chatId);
     setIsMenuOpen(false);
-
-    setMessages([{
-      id: '1',
-      text: `Добро пожаловать в чат "${chats.find(c => c.id === chatId)?.title}"!`,
-      sender: 'bot',
-      timestamp: new Date(),
-    }]);
 
     // Сбрасываем непрочитанные
     setChats(prev => prev.map(chat =>
@@ -90,9 +81,10 @@ const ChatApp: React.FC = () => {
   }, [isCreatingChat]);
 
   // Создание нового чата
-  const handleCreateChat = (modelId: string) => {
+  const handleCreateChat = async (modelId: string) => {
+    // Пустой чат заглушка
     const newChat: Chat = {
-      id: Date.now().toString(),
+      id: "0",
       title: `Чат ${chats.filter(c => c.model === modelId).length + 1}`,
       lastMessage: 'Новый чат создан',
       model: modelId,
@@ -100,7 +92,11 @@ const ChatApp: React.FC = () => {
     };
 
     setChats(prev => [...prev, newChat]);
-    handleChatChange(newChat.id);
+
+    // Чтобы сообщения в новом чате не ссылались на сообщения из других чатов
+    setParent(null)
+    await handleChatChange(newChat.id);
+   
   };
 
   // Получение чатов по моделям
@@ -133,7 +129,172 @@ const ChatApp: React.FC = () => {
 
   
 
+//__________________MESSAGES_________________________
+  const {messages, setMessages, send} = useMessages(activeChat);
+  const [parentId, setParent] = useState<string | null>(null);
+  const { chunks, error, start } = useStreamMessage(activeChat);
+  const [rootID, setRootID] = useState<string | null>(null)
+  const {upload} = useUploadFile();
 
+
+  // Используется для стриминга сообщений от LLM
+  useEffect(() => {
+    if (chunks.length > 0) {
+      setMessages(prevMessages => {
+        if (prevMessages.length === 0) return prevMessages;
+  
+        const updatedMessages = [...prevMessages];
+        const lastIndex = updatedMessages.length - 1;
+  
+        updatedMessages[lastIndex] = {
+          ...updatedMessages[lastIndex],
+          content: chunks.join(""),
+        };
+  
+        return updatedMessages;
+      });
+    }
+  }, [chunks, parentId]);
+
+  // Автопрокрутка к новым сообщениям
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+
+
+  const handleSendMessage = async () => {    
+    if (!inputText.trim() && !attachment) return;
+    const currentChat = chats.find(chat => chat.id === activeChat);
+    let requestMessage: MessageIn;
+    let newMsg: Message;
+
+
+    // Если текущий чат пустой, то вначале создается с автоматическим название чат
+    // Используя его newChatId создаю новое сообщение юзера и стримлю ответ на это сообщение
+    // Затем когда стриминг закончился итоговый ответ LLM сохраняю и только тогда меня текущий чат на сгенерированный
+    if (!currentChat || currentChat.isEmpty) {
+      const newChatId = await createAuto(inputText, { telegram_id: user.id, model: activeModel, title: 'ЧБД' });
+
+      requestMessage = {
+        chat_id: newChatId,
+        parent_id: null,
+        res_ids: res_ids.ids,
+        role: 'user',
+        content: inputText,
+      };
+      newMsg = await send(requestMessage);
+      setParent(newMsg.id);
+
+      setInputText('');
+      setAttachment(null);
+      setReplyContext(null);
+
+      
+      const tempId = uuidv4();
+      const newResponse: Message = {
+        id: tempId,
+        parent_id: newMsg.id,
+        res_ids: newMsg.res_ids,
+        role: "assistant",
+        content: "",
+      }
+      setMessages(prev => [...prev, newResponse])
+
+
+      const fullResponse = await start(newMsg.id);
+
+
+      
+      const requestMessageAs: MessageIn = {
+        chat_id: requestMessage.chat_id,
+        parent_id: newMsg.id,
+        res_ids: newMsg.res_ids,
+        role: "assistant",
+        content: fullResponse,
+      };
+
+      const responseAs = await send(requestMessageAs);
+      setRootID(responseAs.id)
+      // Заменить временное сообщение (id === "0") на настоящее
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === tempId
+            ? responseAs  // ✅ подставляем настоящее сообщение
+            : msg
+        )
+      );
+      setRes({ids:[]})
+      await handleChatChange(newChatId);
+      return;
+    } else {
+      requestMessage = {
+        chat_id: activeChat,
+        parent_id: replyContext ? replyContext.messageId: rootID,
+        res_ids: res_ids.ids,
+        role: 'user',
+        content: inputText,
+      };
+      newMsg = await send(requestMessage);
+      setParent(newMsg.id);
+      setRes({ids:[]})
+
+
+    }
+
+    setInputText('');
+    setAttachment(null);
+    setReplyContext(null);
+
+    const tempId = uuidv4();
+    const newResponse: Message = {
+      id: tempId,
+      parent_id: newMsg.id,
+      res_ids: newMsg.res_ids,
+      role: "assistant",
+      content: "",
+    }
+    setMessages(prev => [...prev, newResponse])
+
+
+    const fullResponse = await start(newMsg.id);
+
+    const requestMessageAs: MessageIn = {
+      chat_id: requestMessage.chat_id,
+      parent_id: newMsg.id,
+      res_ids: newMsg.res_ids,
+      role: "assistant",
+      content: fullResponse,
+    };
+
+    const responseAs = await send(requestMessageAs);
+    setRootID(responseAs.id)
+    // Заменить временное сообщение (id === "0") на настоящее
+    setMessages(prev =>
+      prev.map(msg =>
+        msg.id === tempId
+          ? responseAs  // ✅ подставляем настоящее сообщение
+          : msg
+      )
+    );
+    
+    // Обновляем последнее сообщение в списке чатов
+    setChats(prev => prev.map(chat =>
+      chat.id === activeChat
+        ? { ...chat, lastMessage: inputText || 'Вложение', unreadCount: 0 }
+        : chat
+    ));
+  };
+
+
+  const [res_ids, setRes] = useState<{ ids: string[] }>({ids:[]})
+  const [childIndexes, setChildIndexes] = useState<{ [parentId: string]: number }>({});
+
+//___________________________________________________________
+
+
+
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const newChatInputRef = useRef<HTMLInputElement>(null);
@@ -154,102 +315,14 @@ const ChatApp: React.FC = () => {
     document.body.classList.toggle('dark-theme', newTheme === 'dark');
   };
 
-  // Инициализация с приветственным сообщением
-  useEffect(() => {
-    const welcomeMessage: Message = {
-      id: '1',
-      text: `Привет! Это чат "${chats.find(c => c.id === activeChat)?.title}". Чем могу помочь?`,
-      sender: 'bot',
-      timestamp: new Date(),
-    };
-    setMessages([welcomeMessage]);
-  }, [activeChat]);
-
-  // Автопрокрутка к новым сообщениям
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  
-
-  // Обработчик отправки сообщения
-  const handleSendMessage = async () => {
-    if (!inputText.trim() && !attachment) return;
-    const currentChat = chats.find(chat => chat.id === activeChat);
-
-    if (currentChat?.isEmpty || currentChat===undefined) {
-      //Создание чата с авто названием и делание его активным
-      const res: string = await createAuto(inputText, {telegram_id:user.id, model:activeModel, title:"ЧБД"})
-      handleChatChange(res)
-    }
-    
-    
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText,
-      sender: 'user',
-      timestamp: new Date(),
-      replyTo: replyContext?.messageId,
-    };
-
-    if (attachment) {
-      const attachmentType = attachment.type.startsWith('image/') ? 'image' : 'document';
-      userMessage.attachment = {
-        type: attachmentType,
-        url: URL.createObjectURL(attachment),
-        name: attachment.name,
-      };
-    }
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputText('');
-    setAttachment(null);
-    setReplyContext(null);
-
-   
-   
-
-    // Обновляем последнее сообщение в списке чатов
-    setChats(prev => prev.map(chat =>
-      chat.id === activeChat
-        ? { ...chat, lastMessage: inputText || 'Вложение', unreadCount: 0 }
-        : chat
-    ));
-
-    // Имитация ответа бота
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: generateBotResponse(inputText, replyContext),
-        sender: 'bot',
-        timestamp: new Date(),
-        replyTo: userMessage.id,
-      };
-      setMessages(prev => [...prev, botResponse]);
-    }, 1000);
-  };
-
-  // Генерация ответа бота
-  const generateBotResponse = (userText: string, context: ReplyContext | null): string => {
-    const responses = [
-      "Я понял ваш запрос. Давайте обсудим это подробнее.",
-      "Интересный вопрос! Давайте разберемся вместе.",
-      "Спасибо за ваше сообщение. Я уже работаю над этим.",
-      "Хорошо, я записал эту информацию. Что еще вас интересует?",
-      "Отличное замечание! Давайте продолжим наш разговор."
-    ];
-
-    if (context) {
-      return `Отвечая на ваше сообщение "${context.messageText}": ${responses[Math.floor(Math.random() * responses.length)]}`;
-    }
-
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
-
   // Обработчик вложения файла
-  const handleAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setAttachment(e.target.files[0]);
+      //setAttachment(e.target.files[0]);
+      const res = await upload(activeChat, e.target.files[0])
+      // получаем id чанков файла и сохраняем их в следующее сообщение
+      setRes(res)
+      await send({chat_id: activeChat, role: "user", content: e.target.files[0].name})
     }
   };
 
@@ -270,7 +343,6 @@ const ChatApp: React.FC = () => {
       position: { top: rect.bottom + 5, left: rect.left - 100 }
     });
   };
-
 
 
   return (
@@ -378,7 +450,7 @@ const ChatApp: React.FC = () => {
           </button>
 
           {getChatsByModel(activeModel).length > 0 ? (
-            getChatsByModel(activeModel).map(chat => (
+            [...getChatsByModel(activeModel)].reverse().map(chat => (
               <div
                 key={chat.id}
                 className={`chat-item ${activeChat === chat.id ? 'active' : ''}`}
@@ -444,49 +516,27 @@ const ChatApp: React.FC = () => {
         <div className="menu-overlay" onClick={() => setIsMenuOpen(false)} />
       )}
 
-      {/* Область сообщений */}
+
+      {/* Ветки сообщений */}
       <div className="messages-container">
-        {activeChat ? (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`message ${message.sender}`}
-              onClick={() => setReplyContext({
-                messageId: message.id,
-                messageText: message.text,
-              })}
-            >
-              {message.replyTo && (
-                <div className="reply-context">
-                  {messages.find(m => m.id === message.replyTo)?.text}
-                </div>
-              )}
+          {messages
+            .filter(msg => msg.parent_id === null)
+            .map((root) => (
+              <MessageThread
+                key={root.id}
+                message={root}
+                messages={messages}
+                childIndexes={childIndexes}
+                setChildIndexes={setChildIndexes}
+                onLastMessageIdChange={(id) => {
+                  console.log('Current last message ID:', id);
+                  setRootID(id)
+                }}
+                setReplyContext={setReplyContext}
+              />
+            ))}
+        </div>
 
-              {message.attachment && (
-                <div className="attachment">
-                  {message.attachment.type === 'image' ? (
-                    <img src={message.attachment.url} alt="Прикрепленное изображение" />
-                  ) : (
-                    <a href={message.attachment.url} download>
-                      📄 {message.attachment.name || 'Документ'}
-                    </a>
-                  )}
-                </div>
-              )}
-
-              <div className="message-text">{message.text}</div>
-              <div className="message-time">
-                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="no-chat-selected">
-            <p>Выберите чат из списка или создайте новый</p>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
 
       {/* Панель ввода (только если выбран чат) */}
       {activeChat && (
@@ -511,7 +561,7 @@ const ChatApp: React.FC = () => {
               ref={fileInputRef}
               onChange={handleAttachment}
               style={{ display: 'none' }}
-              accept="image/*,.pdf,.doc,.docx"
+              accept=".pdf"
             />
 
             <textarea

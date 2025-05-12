@@ -2,13 +2,12 @@
 import { useEffect, useState } from 'react';
 import { createChatAuto, deleteChat, getAllChats, getChat } from '../api/chat';
 import { Chat } from '../types'
-import { transformChatOut, transformChats } from '../utils/chat';
+import { transformChatOut, transformChats } from '../utils/transform';
 import { ChatIn } from '../api/types';
 
 export function useChats(telegramId: number) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeChat, setActiveChat] = useState<string>('1');
 
 
   useEffect(() => {
@@ -47,5 +46,5 @@ export function useChats(telegramId: number) {
     }
   };
 
-  return {activeChat, setActiveChat, chats, loading, createAuto, setChats, delChat };
+  return {chats, loading, createAuto, setChats, delChat };
 }

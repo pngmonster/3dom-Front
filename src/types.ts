@@ -3,9 +3,12 @@
 
 export type Message = {
   id: string;
-  text: string;
-  sender: 'user' | 'bot';
-  timestamp: Date;
+  parent_id: string | null;
+  res_ids?: string[] | null;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+
+  created_at?: string;
   replyTo?: string;
   attachment?: {
     type: 'image' | 'document';
@@ -21,7 +24,7 @@ export type ReplyContext = {
 
 
 
-export type Category = {
+export type Model = {
   id: string;
   name: string;
 };
