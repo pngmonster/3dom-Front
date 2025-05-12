@@ -322,7 +322,7 @@ const ChatApp: React.FC = () => {
       const res = await upload(activeChat, e.target.files[0])
       // получаем id чанков файла и сохраняем их в следующее сообщение
       setRes(res)
-      await send({chat_id: activeChat, role: "user", content: e.target.files[0].name})
+      await send({chat_id: activeChat, parent_id: rootID, role: "user", content: e.target.files[0].name})
     }
   };
 
